@@ -266,10 +266,17 @@
     return out;
   }
 
-  // Apply a separated scores string — tries "|" first, falls back to ","
-  // e.g. "3|5|2|7|4|1|6"  or  "3,5,2,7,4,1,6"
+  // Parse scores from the string Jotform delivers via widgetpopulate.
+  // Jotform strips commas when resolving merge tags, so "3,5,2,7,4,1,6"
+  // arrives as "3527416". Since each standard has max 7 questions every
+  // score is a single digit — we read one character per standard.
   function parseAndApplyScores(str) {
-    var parts = str.indexOf("|") !== -1 ? str.split("|") : str.split(",");
+    str = str.trim();
+    // Prefer explicit separators if Jotform ever preserves them
+    var parts;
+    if (str.indexOf("|") !== -1)      { parts = str.split("|"); }
+    else if (str.indexOf(",") !== -1)  { parts = str.split(","); }
+    else                               { parts = str.split("");  } // digit-per-standard fallback
     parts.forEach(function(val, i) {
       if (i < STANDARDS.length) {
         var n = parseInt(val.trim(), 10);
