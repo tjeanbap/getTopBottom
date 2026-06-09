@@ -316,6 +316,7 @@
   }
 
   JFCustomWidget.subscribe("ready", function() {
+    console.log("[widget] ready — subscribing to fields:", STANDARDS.map(function(s){ return s.fieldId; }));
     STANDARDS.forEach(function(s) { subscribeToField(s.fieldId); });
     render(buildStandards());
   });
@@ -325,6 +326,7 @@
     try {
       var msg = (typeof e.data === "string") ? JSON.parse(e.data) : e.data;
       if (!msg || !msg.type) return;
+      console.log("[widget] msg.type=", msg.type, JSON.stringify(msg).slice(0, 300));
 
       if (msg.type === "event:receiver") {
         // Field ID and value may live at the top level or inside msg.data
