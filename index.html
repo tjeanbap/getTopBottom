@@ -373,7 +373,18 @@
       if (!msg || !msg.type) return;
       dbg("MSG: " + JSON.stringify(msg).slice(0, 250));
 
-      if (msg.type === "event:receiver") {
+      if (msg.type === "scoreUpdate" && Array.isArray(msg.scores)) {
+        // Scores pushed in real-time by the Jotform custom code injection
+        msg.scores.forEach(function(score, i) {
+          if (i < STANDARDS.length) {
+            var n = parseInt(score, 10);
+            STANDARDS[i].score = isNaN(n) ? 0 : n;
+          }
+        });
+        dbg("scoreUpdate: " + msg.scores.join(","));
+        render(buildStandards());
+
+      } else if (msg.type === "event:receiver") {
         // Field ID and value may live at the top level or inside msg.data
         var fieldId = msg.fieldID || msg.name  || (msg.data && (msg.data.fieldID || msg.data.name));
         var rawVal  = msg.value   || msg.val   || (msg.data && (msg.data.value   || msg.data.val)) || "0";
