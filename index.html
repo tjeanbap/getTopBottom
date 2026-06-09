@@ -203,6 +203,7 @@
   }
 
   function render(standards) {
+    dbg("render: " + standards.map(function(s){ return s.name.split(" ")[0]+":"+s.score; }).join(" "));
     var root = document.getElementById("widget-root");
 
     var allZero = standards.every(function(s) { return s.score === 0; });
