@@ -291,6 +291,16 @@
     return out;
   }
 
+  // Apply a plain comma-separated scores string e.g. "3,5,2,7,4,1,6"
+  function parseAndApplyScores(csv) {
+    csv.split(",").forEach(function(val, i) {
+      if (i < STANDARDS.length) {
+        var n = parseInt(val.trim(), 10);
+        if (!isNaN(n) && n >= 0) STANDARDS[i].score = n;
+      }
+    });
+  }
+
   // Decode the URL-encoded settings JSON Jotform sends and extract scores.
   // Format: "[{\"name\":\"scores\",\"value\":\"3,5,2,7,4,1,6\"}, ...]"
   function parseScoresFromSettings(raw) {
@@ -373,7 +383,13 @@
       if (!msg || !msg.type) return;
       dbg("MSG: " + JSON.stringify(msg).slice(0, 250));
 
-      if (msg.type === "scoreUpdate" && Array.isArray(msg.scores)) {
+      if (msg.type === "widgetpopulate") {
+        // Jotform conditional logic set this widget's value — parse scores from it
+        var populated = msg.value || (msg.data && msg.data.value) || "";
+        dbg("widgetpopulate: " + populated);
+        if (populated) { parseAndApplyScores(populated); render(buildStandards()); }
+
+      } else if (msg.type === "scoreUpdate" && Array.isArray(msg.scores)) {
         // Scores pushed in real-time by the Jotform custom code injection
         msg.scores.forEach(function(score, i) {
           if (i < STANDARDS.length) {
