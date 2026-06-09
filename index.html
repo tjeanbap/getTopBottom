@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Top & Bottom Standards Widget</title>
+  <script src="//js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f9fafb;
+      padding: 12px;
+    }
+
+    h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .section {
+      margin-bottom: 14px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .top-label    { color: #059669; }
+    .bottom-label { color: #dc2626; }
+
+    .card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .card-top {
+      background: #d1fae5;
+      color: #065f46;
+      border-left: 4px solid #059669;
+    }
+
+    .card-bottom {
+      background: #fee2e2;
+      color: #7f1d1d;
+      border-left: 4px solid #dc2626;
+    }
+
+    .card-rank {
+      font-size: 10px;
+      font-weight: 700;
+      opacity: 0.6;
+      min-width: 20px;
+    }
+
+    .card-name {
+      flex: 1;
+      padding: 0 10px;
+    }
+
+    .card-score {
+      font-size: 18px;
+      font-weight: 700;
+      min-width: 30px;
+      text-align: right;
+    }
+
+    .card-bar-wrap {
+      height: 4px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+
+    .card-bar {
+      height: 4px;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    .bar-top    { background: #059669; }
+    .bar-bottom { background: #dc2626; }
+
+    .no-data {
+      font-size: 13px;
+      color: #9ca3af;
+      text-align: center;
+      padding: 20px 10px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px dashed #d1d5db;
+    }
+
+    .divider {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 12px 0;
+    }
+
+    .tie-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 5px;
+      border-radius: 4px;
+      margin-left: 6px;
+      vertical-align: middle;
+      text-transform: uppercase;
+    }
+
+    .card-top    .tie-badge { background: #a7f3d0; color: #065f46; }
+    .card-bottom .tie-badge { background: #fecaca; color: #7f1d1d; }
+
+    .tie-note {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: -2px;
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="widget-root">
+  <div class="no-data">Loading scores…</div>
+</div>
+
+<script>
+  var MAX_SCORE = 7; // each standard has 7 True/False questions
+
+  var DEFAULT_NAMES = [
+    "Clear Vision",
+    "Healthy Partnerships",
+    "Fruitful Ministry",
+    "Effective Operations",
+    "Qualified Leadership",
+    "Impactful Training",
+    "Kingdom Stewardship"
+  ];
+
+  // Parse a comma-separated string into a trimmed array, ignoring empty entries
+  function parseCSV(str) {
+    if (!str) return [];
+    return str.split(",").map(function(s) { return s.trim(); }).filter(function(s) { return s !== ""; });
+  }
+
+  function buildStandards(names, rawScores) {
+    var standards = [];
+    for (var i = 0; i < names.length; i++) {
+      var score = parseInt(rawScores[i], 10);
+      standards.push({
+        name: names[i],
+        score: isNaN(score) ? 0 : score
+      });
+    }
+    return standards;
+  }
+
+  // Returns { top, bottom, topTied, bottomTied, allEqual }
+  // topTied: true when the score at rank 2 equals the score at rank 3 (boundary tie)
+  // bottomTied: true when the score at rank 6 equals the score at rank 5 (boundary tie)
+  function getTopBottom(standards) {
+    var sorted = standards.slice().sort(function(a, b) { return b.score - a.score; });
+    var n = sorted.length;
+
+    var allEqual = sorted.every(function(s) { return s.score === sorted[0].score; });
+
+    // Boundary tie at top: rank-2 score == rank-3 score (index 1 == index 2)
+    var topTied = !allEqual && n > 2 && sorted[1].score === sorted[2].score;
+
+    // Boundary tie at bottom: rank-(n-2) score == rank-(n-3) score (index n-2 == index n-3)
+    var bottomTied = !allEqual && n > 2 && sorted[n - 2].score === sorted[n - 3].score;
+
+    return {
+      top:         sorted.slice(0, 2),
+      bottom:      sorted.slice(-2).reverse(),
+      topTied:     topTied,
+      bottomTied:  bottomTied,
+      allEqual:    allEqual
+    };
+  }
+
+  function makeCard(item, type, rank, isTied) {
+    var pct = MAX_SCORE > 0 ? Math.round((item.score / MAX_SCORE) * 100) : 0;
+    var cardClass = type === "top" ? "card card-top" : "card card-bottom";
+    var barClass  = type === "top" ? "bar-top"       : "bar-bottom";
+    var tieBadge  = isTied ? '<span class="tie-badge">tie</span>' : "";
+
+    return (
+      '<div class="' + cardClass + '">' +
+        '<span class="card-rank">#' + rank + '</span>' +
+        '<div class="card-name">' +
+          '<div>' + escapeHtml(item.name) + tieBadge + '</div>' +
+          '<div class="card-bar-wrap"><div class="card-bar ' + barClass + '" style="width:' + pct + '%"></div></div>' +
+        '</div>' +
+        '<span class="card-score">' + item.score + '<span style="font-size:11px;opacity:.5;">/' + MAX_SCORE + '</span></span>' +
+      '</div>'
+    );
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function render(standards) {
+    var root = document.getElementById("widget-root");
+
+    var allZero = standards.every(function(s) { return s.score === 0; });
+    if (allZero) {
+      root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
+      JFCustomWidget.requestFrameResize({ height: 80 });
+      return;
+    }
+
+    var tb = getTopBottom(standards);
+    var html = "";
+
+    if (tb.allEqual) {
+      html += '<div class="no-data">All standards are tied at ' + standards[0].score + '/' + MAX_SCORE + ' — no top or bottom can be determined.</div>';
+      root.innerHTML = html;
+      JFCustomWidget.requestFrameResize({ height: 80 });
+      return;
+    }
+
+    html += '<div class="section">';
+    html += '<div class="section-label top-label">Top 2 Standards</div>';
+    if (tb.topTied) {
+      html += '<div class="tie-note">* 2nd place is tied — shown alphabetically</div>';
+    }
+    tb.top.forEach(function(item, idx) {
+      var isTied = tb.topTied && idx === 1;
+      html += makeCard(item, "top", idx + 1, isTied);
+    });
+    html += '</div>';
+
+    html += '<div class="divider"></div>';
+
+    html += '<div class="section">';
+    html += '<div class="section-label bottom-label">Bottom 2 Standards</div>';
+    if (tb.bottomTied) {
+      html += '<div class="tie-note">* 2nd-to-last place is tied — shown alphabetically</div>';
+    }
+    tb.bottom.forEach(function(item, idx) {
+      var isTied = tb.bottomTied && idx === 0;
+      html += makeCard(item, "bottom", idx + 1, isTied);
+    });
+    html += '</div>';
+
+    root.innerHTML = html;
+    JFCustomWidget.requestFrameResize({ height: tb.topTied || tb.bottomTied ? 300 : 260 });
+  }
+
+  function loadAndRender() {
+    // Names: use widget setting if provided, otherwise fall back to defaults
+    var namesParam  = JFCustomWidget.getWidgetSetting("standardNames");
+    var scoresParam = JFCustomWidget.getWidgetSetting("scores");
+
+    var names  = namesParam  ? parseCSV(namesParam)  : DEFAULT_NAMES;
+    var scores = scoresParam ? parseCSV(scoresParam)  : [];
+
+    // Pad scores array if shorter than names
+    while (scores.length < names.length) { scores.push("0"); }
+
+    var maxParam = JFCustomWidget.getWidgetSetting("maxScore");
+    if (maxParam && !isNaN(parseInt(maxParam, 10))) {
+      MAX_SCORE = parseInt(maxParam, 10);
+    }
+
+    var standards = buildStandards(names, scores);
+    render(standards);
+  }
+
+  // ── Widget lifecycle ──────────────────────────────────────────────────────
+
+  JFCustomWidget.subscribe("ready", function() {
+    loadAndRender();
+  });
+
+  JFCustomWidget.subscribe("submit", function() {
+    // Refresh from settings at submit time (merge tags resolve to latest values)
+    loadAndRender();
+
+    var namesParam  = JFCustomWidget.getWidgetSetting("standardNames");
+    var scoresParam = JFCustomWidget.getWidgetSetting("scores");
+    var names  = namesParam  ? parseCSV(namesParam)  : DEFAULT_NAMES;
+    var scores = scoresParam ? parseCSV(scoresParam)  : [];
+    while (scores.length < names.length) { scores.push("0"); }
+
+    var standards = buildStandards(names, scores);
+    var tb = getTopBottom(standards);
+
+    var summary;
+    if (tb.allEqual) {
+      summary = "All standards tied at " + standards[0].score + "/" + MAX_SCORE;
+    } else {
+      var topStr    = tb.top.map(function(s) { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
+      var bottomStr = tb.bottom.map(function(s) { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
+      var tieNotes  = [];
+      if (tb.topTied)    { tieNotes.push("2nd place tied"); }
+      if (tb.bottomTied) { tieNotes.push("2nd-to-last place tied"); }
+      summary = "Top 2: " + topStr + " | Bottom 2: " + bottomStr;
+      if (tieNotes.length) { summary += " [" + tieNotes.join("; ") + "]"; }
+    }
+
+    JFCustomWidget.sendSubmit({ valid: true, value: summary });
+  });
+</script>
+</body>
+</html>
