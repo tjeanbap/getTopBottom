@@ -145,6 +145,7 @@
 <div id="widget-root">
   <div class="no-data">Loading scores…</div>
 </div>
+<div id="debug-log" style="margin-top:8px;font-size:10px;font-family:monospace;color:#666;word-break:break-all;max-height:200px;overflow-y:auto;"></div>
 
 <script>
   var MAX_SCORE = 7; // each standard has 7 True/False questions
@@ -315,8 +316,18 @@
     return false;
   }
 
+  function dbg(text) {
+    var el = document.getElementById("debug-log");
+    if (!el) return;
+    var line = document.createElement("div");
+    line.textContent = text;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+    JFCustomWidget.requestFrameResize({ height: 400 });
+  }
+
   JFCustomWidget.subscribe("ready", function() {
-    console.log("[widget] ready — subscribing to fields:", STANDARDS.map(function(s){ return s.fieldId; }));
+    dbg("ready. subscribing: " + STANDARDS.map(function(s){ return s.fieldId; }).join(","));
     STANDARDS.forEach(function(s) { subscribeToField(s.fieldId); });
     render(buildStandards());
   });
@@ -326,7 +337,7 @@
     try {
       var msg = (typeof e.data === "string") ? JSON.parse(e.data) : e.data;
       if (!msg || !msg.type) return;
-      console.log("[widget] msg.type=", msg.type, JSON.stringify(msg).slice(0, 300));
+      dbg("MSG: " + JSON.stringify(msg).slice(0, 250));
 
       if (msg.type === "event:receiver") {
         // Field ID and value may live at the top level or inside msg.data
