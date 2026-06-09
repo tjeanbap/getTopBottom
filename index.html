@@ -77,27 +77,6 @@
       padding: 0 10px;
     }
 
-    .card-score {
-      font-size: 18px;
-      font-weight: 700;
-      min-width: 30px;
-      text-align: right;
-    }
-
-    .card-bar-wrap {
-      height: 4px;
-      background: rgba(0,0,0,0.1);
-      border-radius: 2px;
-      margin-top: 4px;
-      overflow: hidden;
-    }
-
-    .card-bar {
-      height: 4px;
-      border-radius: 2px;
-      transition: width 0.4s ease;
-    }
-
     .bar-top    { background: #059669; }
     .bar-bottom { background: #dc2626; }
 
@@ -202,19 +181,15 @@
   }
 
   function makeCard(item, type, rank, isTied) {
-    var pct = MAX_SCORE > 0 ? Math.round((item.score / MAX_SCORE) * 100) : 0;
     var cardClass = type === "top" ? "card card-top" : "card card-bottom";
-    var barClass  = type === "top" ? "bar-top"       : "bar-bottom";
     var tieBadge  = isTied ? '<span class="tie-badge">tie</span>' : "";
 
     return (
       '<div class="' + cardClass + '">' +
         '<span class="card-rank">#' + rank + '</span>' +
         '<div class="card-name">' +
-          '<div>' + escapeHtml(item.name) + tieBadge + '</div>' +
-          '<div class="card-bar-wrap"><div class="card-bar ' + barClass + '" style="width:' + pct + '%"></div></div>' +
+          escapeHtml(item.name) + tieBadge +
         '</div>' +
-        '<span class="card-score">' + item.score + '<span style="font-size:11px;opacity:.5;">/' + MAX_SCORE + '</span></span>' +
       '</div>'
     );
   }
@@ -291,9 +266,11 @@
     return out;
   }
 
-  // Apply a plain comma-separated scores string e.g. "3,5,2,7,4,1,6"
-  function parseAndApplyScores(csv) {
-    csv.split(",").forEach(function(val, i) {
+  // Apply a separated scores string — tries "|" first, falls back to ","
+  // e.g. "3|5|2|7|4|1|6"  or  "3,5,2,7,4,1,6"
+  function parseAndApplyScores(str) {
+    var parts = str.indexOf("|") !== -1 ? str.split("|") : str.split(",");
+    parts.forEach(function(val, i) {
       if (i < STANDARDS.length) {
         var n = parseInt(val.trim(), 10);
         if (!isNaN(n) && n >= 0) STANDARDS[i].score = n;
