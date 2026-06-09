@@ -149,32 +149,25 @@
 <script>
   var MAX_SCORE = 7; // each standard has 7 True/False questions
 
-  var DEFAULT_NAMES = [
-    "Clear Vision",
-    "Healthy Partnerships",
-    "Fruitful Ministry",
-    "Effective Operations",
-    "Qualified Leadership",
-    "Impactful Training",
-    "Kingdom Stewardship"
+  // ── Hardcoded standard → field ID mapping for form 261576270259059 ─────────
+  var STANDARDS = [
+    { name: "Clear Vision",         fieldId: "t",    score: 0 },
+    { name: "Healthy Partnerships", fieldId: "t133", score: 0 },
+    { name: "Fruitful Ministry",    fieldId: "t169", score: 0 },
+    { name: "Effective Operations", fieldId: "t172", score: 0 },
+    { name: "Qualified Leadership", fieldId: "t175", score: 0 },
+    { name: "Impactful Training",   fieldId: "t185", score: 0 },
+    { name: "Kingdom Stewardship",  fieldId: "t187", score: 0 }
   ];
 
-  // Parse a comma-separated string into a trimmed array, ignoring empty entries
-  function parseCSV(str) {
-    if (!str) return [];
-    return str.split(",").map(function(s) { return s.trim(); }).filter(function(s) { return s !== ""; });
-  }
+  // Fast lookup: fieldId → STANDARDS index
+  var FIELD_INDEX = {};
+  STANDARDS.forEach(function(s, i) { FIELD_INDEX[s.fieldId] = i; });
 
-  function buildStandards(names, rawScores) {
-    var standards = [];
-    for (var i = 0; i < names.length; i++) {
-      var score = parseInt(rawScores[i], 10);
-      standards.push({
-        name: names[i],
-        score: isNaN(score) ? 0 : score
-      });
-    }
-    return standards;
+  function buildStandards() {
+    return STANDARDS.map(function(s) {
+      return { name: s.name, score: s.score };
+    });
   }
 
   // Returns { top, bottom, topTied, bottomTied, allEqual }
@@ -275,59 +268,65 @@
     JFCustomWidget.requestFrameResize({ height: tb.topTied || tb.bottomTied ? 300 : 260 });
   }
 
-  function loadAndRender() {
-    // Names: use widget setting if provided, otherwise fall back to defaults
-    var namesParam  = JFCustomWidget.getWidgetSetting("standardNames");
-    var scoresParam = JFCustomWidget.getWidgetSetting("scores");
-
-    var names  = namesParam  ? parseCSV(namesParam)  : DEFAULT_NAMES;
-    var scores = scoresParam ? parseCSV(scoresParam)  : [];
-
-    // Pad scores array if shorter than names
-    while (scores.length < names.length) { scores.push("0"); }
-
-    var maxParam = JFCustomWidget.getWidgetSetting("maxScore");
-    if (maxParam && !isNaN(parseInt(maxParam, 10))) {
-      MAX_SCORE = parseInt(maxParam, 10);
+  function buildSummary() {
+    var standards = buildStandards();
+    var tb = getTopBottom(standards);
+    if (tb.allEqual) {
+      return "All standards tied at " + STANDARDS[0].score + "/" + MAX_SCORE;
     }
-
-    var standards = buildStandards(names, scores);
-    render(standards);
+    var topStr    = tb.top.map(function(s)    { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
+    var bottomStr = tb.bottom.map(function(s) { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
+    var tieNotes  = [];
+    if (tb.topTied)    { tieNotes.push("2nd place tied"); }
+    if (tb.bottomTied) { tieNotes.push("2nd-to-last place tied"); }
+    var out = "Top 2: " + topStr + " | Bottom 2: " + bottomStr;
+    if (tieNotes.length) { out += " [" + tieNotes.join("; ") + "]"; }
+    return out;
   }
 
   // ── Widget lifecycle ──────────────────────────────────────────────────────
 
   JFCustomWidget.subscribe("ready", function() {
-    loadAndRender();
+    // Subscribe to every T-count field so Jotform pushes value changes here
+    STANDARDS.forEach(function(s) {
+      try {
+        parent.postMessage(JSON.stringify({
+          type:    "event:store",
+          fieldID: s.fieldId
+        }), "*");
+      } catch (e) {}
+    });
+    render(buildStandards());
+  });
+
+  // Listen for incoming messages from the Jotform parent:
+  //  • "event:receiver" — a subscribed field changed its value
+  //  • "settings"       — fallback: Jotform re-sent widget settings with updated values
+  window.addEventListener("message", function(e) {
+    try {
+      var msg = (typeof e.data === "string") ? JSON.parse(e.data) : e.data;
+      if (!msg || !msg.type) return;
+
+      if (msg.type === "event:receiver") {
+        // Resolve field ID from either top-level or nested data object
+        var fieldId = msg.fieldID || (msg.data && msg.data.fieldID);
+        var rawVal  = msg.value   || (msg.data && msg.data.value) || "0";
+        var idx = FIELD_INDEX[fieldId];
+        if (idx !== undefined) {
+          var val = parseInt(rawVal, 10);
+          STANDARDS[idx].score = isNaN(val) ? 0 : val;
+          render(buildStandards());
+        }
+      } else if (msg.type === "settings") {
+        // Settings update — re-render in case any scores arrived via widget params
+        render(buildStandards());
+      }
+    } catch (err) { /* ignore non-JSON frames */ }
   });
 
   JFCustomWidget.subscribe("submit", function() {
-    // Refresh from settings at submit time (merge tags resolve to latest values)
-    loadAndRender();
-
-    var namesParam  = JFCustomWidget.getWidgetSetting("standardNames");
-    var scoresParam = JFCustomWidget.getWidgetSetting("scores");
-    var names  = namesParam  ? parseCSV(namesParam)  : DEFAULT_NAMES;
-    var scores = scoresParam ? parseCSV(scoresParam)  : [];
-    while (scores.length < names.length) { scores.push("0"); }
-
-    var standards = buildStandards(names, scores);
-    var tb = getTopBottom(standards);
-
-    var summary;
-    if (tb.allEqual) {
-      summary = "All standards tied at " + standards[0].score + "/" + MAX_SCORE;
-    } else {
-      var topStr    = tb.top.map(function(s) { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
-      var bottomStr = tb.bottom.map(function(s) { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
-      var tieNotes  = [];
-      if (tb.topTied)    { tieNotes.push("2nd place tied"); }
-      if (tb.bottomTied) { tieNotes.push("2nd-to-last place tied"); }
-      summary = "Top 2: " + topStr + " | Bottom 2: " + bottomStr;
-      if (tieNotes.length) { summary += " [" + tieNotes.join("; ") + "]"; }
-    }
-
-    JFCustomWidget.sendSubmit({ valid: true, value: summary });
+    render(buildStandards());
+    JFCustomWidget.sendSubmit({ valid: true, value: buildSummary() });
   });
 </script>
 </body>
