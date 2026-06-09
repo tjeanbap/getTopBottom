@@ -148,6 +148,12 @@
 <div id="debug-log" style="margin-top:8px;font-size:10px;font-family:monospace;color:#666;word-break:break-all;max-height:200px;overflow-y:auto;"></div>
 
 <script>
+  // ── Global error trap — shows JS errors directly in the widget UI ──────────
+  window.onerror = function(msg, src, line) {
+    var root = document.getElementById("widget-root");
+    if (root) root.innerHTML = '<div class="no-data" style="color:#b91c1c;border-color:#fca5a5">JS Error: ' + msg + ' (line ' + line + ')</div>';
+  };
+
   var MAX_SCORE = 7; // each standard has 7 True/False questions
 
   // ── Hardcoded standard → field ID mapping for form 261576270259059 ─────────
@@ -285,6 +291,28 @@
     return out;
   }
 
+  // Decode the URL-encoded settings JSON Jotform sends and extract scores.
+  // Format: "[{\"name\":\"scores\",\"value\":\"3,5,2,7,4,1,6\"}, ...]"
+  function parseScoresFromSettings(raw) {
+    if (!raw) return;
+    try {
+      var arr = JSON.parse(decodeURIComponent(raw));
+      arr.forEach(function(item) {
+        if (item.name === "scores" && item.value) {
+          dbg("scores param: " + item.value);
+          item.value.split(",").forEach(function(val, i) {
+            if (i < STANDARDS.length) {
+              var n = parseInt(val.trim(), 10);
+              if (!isNaN(n) && n > 0) STANDARDS[i].score = n;
+            }
+          });
+        }
+      });
+    } catch(e) {
+      dbg("settings parse err: " + e.message);
+    }
+  }
+
   // ── Widget lifecycle ──────────────────────────────────────────────────────
 
   // Register for a field's change events using every message type Jotform supports.
@@ -326,6 +354,12 @@
     JFCustomWidget.requestFrameResize({ height: 400 });
   }
 
+  // Confirm the library loaded before trying to subscribe
+  if (typeof JFCustomWidget === "undefined") {
+    document.getElementById("widget-root").innerHTML =
+      '<div class="no-data" style="color:#b91c1c;border-color:#fca5a5">JFCustomWidget library failed to load.</div>';
+  }
+
   JFCustomWidget.subscribe("ready", function() {
     dbg("ready. subscribing: " + STANDARDS.map(function(s){ return s.fieldId; }).join(","));
     STANDARDS.forEach(function(s) { subscribeToField(s.fieldId); });
@@ -348,23 +382,28 @@
         }
 
       } else if (msg.type === "settings") {
-        // Jotform resent settings — also try reading a "scores" widget param
-        // in case the user configured one with merge tags as a fallback.
-        var scoresParam = JFCustomWidget.getWidgetSetting("scores");
-        if (scoresParam) {
-          scoresParam.split(",").forEach(function(val, i) {
-            if (i < STANDARDS.length) {
-              var n = parseInt(val.trim(), 10);
-              if (!isNaN(n)) STANDARDS[i].score = n;
-            }
-          });
-        }
+        // Parse scores directly from the raw URL-encoded settings JSON.
+        // JFCustomWidget may not have updated its internal store yet, so we
+        // decode msg.settings ourselves rather than calling getWidgetSetting().
+        parseScoresFromSettings(msg.settings);
         render(buildStandards());
       }
     } catch (err) { /* ignore non-JSON frames */ }
   });
 
-  JFCustomWidget.subscribe("submit", function() {
+  JFCustomWidget.subscribe("submit", function(data) {
+    // At submit time Jotform re-evaluates merge tags — re-parse settings now
+    parseScoresFromSettings(data && data.settings);
+    // Also try via getWidgetSetting in case the store was updated by now
+    var scoresParam = JFCustomWidget.getWidgetSetting("scores");
+    if (scoresParam) {
+      scoresParam.split(",").forEach(function(val, i) {
+        if (i < STANDARDS.length) {
+          var n = parseInt(val.trim(), 10);
+          if (!isNaN(n) && n > 0) STANDARDS[i].score = n;
+        }
+      });
+    }
     render(buildStandards());
     JFCustomWidget.sendSubmit({ valid: true, value: buildSummary() });
   });
