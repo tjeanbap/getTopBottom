@@ -286,39 +286,66 @@
 
   // ── Widget lifecycle ──────────────────────────────────────────────────────
 
-  JFCustomWidget.subscribe("ready", function() {
-    // Subscribe to every T-count field so Jotform pushes value changes here
-    STANDARDS.forEach(function(s) {
-      try {
-        parent.postMessage(JSON.stringify({
-          type:    "event:store",
-          fieldID: s.fieldId
-        }), "*");
-      } catch (e) {}
+  // Register for a field's change events using every message type Jotform supports.
+  // Also subscribe using the bare numeric ID (e.g. "133" as well as "t133") since
+  // Jotform may use either format internally.
+  function subscribeToField(fieldId) {
+    var numericId = fieldId.replace(/^[a-zA-Z]+/, ""); // "t133" → "133", "t" → ""
+    ["event:listener", "event:store"].forEach(function(type) {
+      try { parent.postMessage(JSON.stringify({ type: type, fieldID: fieldId }), "*"); } catch(e) {}
+      if (numericId && numericId !== fieldId) {
+        try { parent.postMessage(JSON.stringify({ type: type, fieldID: numericId }), "*"); } catch(e) {}
+      }
     });
+  }
+
+  // Try to update a standard score from a raw field ID + value pair.
+  // Accepts the ID as-is, with the "t" prefix stripped, or with it added.
+  function applyFieldValue(fieldId, rawVal) {
+    if (!fieldId) return false;
+    var candidates = [fieldId, "t" + fieldId, fieldId.replace(/^t/, "")];
+    for (var i = 0; i < candidates.length; i++) {
+      var idx = FIELD_INDEX[candidates[i]];
+      if (idx !== undefined) {
+        var n = parseInt(rawVal, 10);
+        STANDARDS[idx].score = isNaN(n) ? 0 : n;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  JFCustomWidget.subscribe("ready", function() {
+    STANDARDS.forEach(function(s) { subscribeToField(s.fieldId); });
     render(buildStandards());
   });
 
-  // Listen for incoming messages from the Jotform parent:
-  //  • "event:receiver" — a subscribed field changed its value
-  //  • "settings"       — fallback: Jotform re-sent widget settings with updated values
+  // Listen for incoming messages from the Jotform parent.
   window.addEventListener("message", function(e) {
     try {
       var msg = (typeof e.data === "string") ? JSON.parse(e.data) : e.data;
       if (!msg || !msg.type) return;
 
       if (msg.type === "event:receiver") {
-        // Resolve field ID from either top-level or nested data object
-        var fieldId = msg.fieldID || (msg.data && msg.data.fieldID);
-        var rawVal  = msg.value   || (msg.data && msg.data.value) || "0";
-        var idx = FIELD_INDEX[fieldId];
-        if (idx !== undefined) {
-          var val = parseInt(rawVal, 10);
-          STANDARDS[idx].score = isNaN(val) ? 0 : val;
+        // Field ID and value may live at the top level or inside msg.data
+        var fieldId = msg.fieldID || msg.name  || (msg.data && (msg.data.fieldID || msg.data.name));
+        var rawVal  = msg.value   || msg.val   || (msg.data && (msg.data.value   || msg.data.val)) || "0";
+        if (applyFieldValue(fieldId, rawVal)) {
           render(buildStandards());
         }
+
       } else if (msg.type === "settings") {
-        // Settings update — re-render in case any scores arrived via widget params
+        // Jotform resent settings — also try reading a "scores" widget param
+        // in case the user configured one with merge tags as a fallback.
+        var scoresParam = JFCustomWidget.getWidgetSetting("scores");
+        if (scoresParam) {
+          scoresParam.split(",").forEach(function(val, i) {
+            if (i < STANDARDS.length) {
+              var n = parseInt(val.trim(), 10);
+              if (!isNaN(n)) STANDARDS[i].score = n;
+            }
+          });
+        }
         render(buildStandards());
       }
     } catch (err) { /* ignore non-JSON frames */ }
