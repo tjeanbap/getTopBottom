@@ -165,18 +165,27 @@
     var allEqual = sorted.every(function(s) { return s.score === sorted[0].score; });
     if (allEqual) return { top: [], bottom: [], topTiers: [], bottomTiers: [], allEqual: true };
 
-    // Collect the 2 highest distinct score values
-    var topTiers = [];
-    sorted.forEach(function(s) {
-      if (topTiers.length < 2 && topTiers.indexOf(s.score) === -1) topTiers.push(s.score);
-    });
-
-    // Collect the 2 lowest distinct score values (iterate from the end)
-    var bottomTiers = [];
-    for (var i = sorted.length - 1; i >= 0; i--) {
-      if (bottomTiers.length < 2 && bottomTiers.indexOf(sorted[i].score) === -1) bottomTiers.push(sorted[i].score);
+    // Top tiers: if 2+ share the highest score, show only that tier.
+    // If exactly 1 holds the top score, also include the 2nd-highest tier.
+    var topScore1 = sorted[0].score;
+    var topGroup1Count = sorted.filter(function(s) { return s.score === topScore1; }).length;
+    var topTiers = [topScore1];
+    if (topGroup1Count < 2) {
+      sorted.forEach(function(s) {
+        if (topTiers.length < 2 && topTiers.indexOf(s.score) === -1) topTiers.push(s.score);
+      });
     }
-    // bottomTiers[0] = lowest score, bottomTiers[1] = second-lowest
+
+    // Bottom tiers: same rule in reverse.
+    var bottomScore1 = sorted[sorted.length - 1].score;
+    var bottomGroup1Count = sorted.filter(function(s) { return s.score === bottomScore1; }).length;
+    var bottomTiers = [bottomScore1];
+    if (bottomGroup1Count < 2) {
+      for (var i = sorted.length - 1; i >= 0; i--) {
+        if (bottomTiers.length < 2 && bottomTiers.indexOf(sorted[i].score) === -1) bottomTiers.push(sorted[i].score);
+      }
+    }
+    // bottomTiers[0] = lowest score, bottomTiers[1] = second-lowest (if included)
 
     var top    = sorted.filter(function(s) { return topTiers.indexOf(s.score)    !== -1; });
     var bottom = sorted.filter(function(s) { return bottomTiers.indexOf(s.score) !== -1; }).reverse();
