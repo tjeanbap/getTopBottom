@@ -230,7 +230,7 @@
     var html = "";
 
     if (tb.allEqual) {
-      html += '<div class="no-data">All standards are tied at ' + standards[0].score + '/' + MAX_SCORE + ' — no top or bottom can be determined.</div>';
+      html += '<div class="card card-top" style="justify-content:center;text-align:center;">All standards have been assessed ' + standards[0].score + '/' + MAX_SCORE + '</div>';
       root.innerHTML = html;
       JFCustomWidget.requestFrameResize({ height: 80 });
       return;
