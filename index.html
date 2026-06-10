@@ -137,13 +137,13 @@
 
   // ── Hardcoded standard → field ID mapping for form 261576270259059 ─────────
   var STANDARDS = [
-    { name: "Clear Vision",         fieldId: "t",    score: 0 },
-    { name: "Healthy Partnerships", fieldId: "t133", score: 0 },
-    { name: "Fruitful Ministry",    fieldId: "t169", score: 0 },
-    { name: "Effective Operations", fieldId: "t172", score: 0 },
-    { name: "Qualified Leadership", fieldId: "t175", score: 0 },
-    { name: "Impactful Training",   fieldId: "t185", score: 0 },
-    { name: "Kingdom Stewardship",  fieldId: "t187", score: 0 }
+    { name: "Clear Vision",         fieldId: "t",    score: 0, fScore: null },
+    { name: "Healthy Partnerships", fieldId: "t133", score: 0, fScore: null },
+    { name: "Fruitful Ministry",    fieldId: "t169", score: 0, fScore: null },
+    { name: "Effective Operations", fieldId: "t172", score: 0, fScore: null },
+    { name: "Qualified Leadership", fieldId: "t175", score: 0, fScore: null },
+    { name: "Impactful Training",   fieldId: "t185", score: 0, fScore: null },
+    { name: "Kingdom Stewardship",  fieldId: "t187", score: 0, fScore: null }
   ];
 
   var hasReceivedData = false; // set true once widgetpopulate fires
@@ -221,15 +221,16 @@
     dbg("render: " + standards.map(function(s){ return s.name.split(" ")[0]+":"+s.score; }).join(" "));
     var root = document.getElementById("widget-root");
 
+    if (!allAnswered()) {
+      root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
+      JFCustomWidget.requestFrameResize({ height: 60 });
+      return;
+    }
+
     var allZero = standards.every(function(s) { return s.score === 0; });
     if (allZero) {
-      if (hasReceivedData) {
-        root.innerHTML = '<div class="card card-bottom" style="justify-content:center;text-align:center;">All standards have been assessed 0/' + MAX_SCORE + '</div>';
-        JFCustomWidget.requestFrameResize({ height: 60 });
-      } else {
-        root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
-        JFCustomWidget.requestFrameResize({ height: 60 });
-      }
+      root.innerHTML = '<div class="card card-bottom" style="justify-content:center;text-align:center;">All standards have been assessed 0/' + MAX_SCORE + '</div>';
+      JFCustomWidget.requestFrameResize({ height: 60 });
       return;
     }
 
@@ -285,21 +286,33 @@
   }
 
   // Parse scores from the string Jotform delivers via widgetpopulate.
-  // Jotform strips commas when resolving merge tags, so "3,5,2,7,4,1,6"
-  // arrives as "3527416". Since each standard has max 7 questions every
-  // score is a single digit — we read one character per standard.
+  // Format: 14 digits — first 7 are T-counts, next 7 are F-counts, one per standard.
+  // Jotform strips commas so the value arrives as a plain digit string.
   function parseAndApplyScores(str) {
     str = str.trim();
-    // Prefer explicit separators if Jotform ever preserves them
     var parts;
     if (str.indexOf("|") !== -1)      { parts = str.split("|"); }
     else if (str.indexOf(",") !== -1)  { parts = str.split(","); }
-    else                               { parts = str.split("");  } // digit-per-standard fallback
-    parts.forEach(function(val, i) {
-      if (i < STANDARDS.length) {
-        var n = parseInt(val.trim(), 10);
-        if (!isNaN(n) && n >= 0) STANDARDS[i].score = n;
-      }
+    else                               { parts = str.split(""); }
+
+    var n = STANDARDS.length;
+    parts.slice(0, n).forEach(function(val, i) {
+      var v = parseInt(val.trim(), 10);
+      if (!isNaN(v) && v >= 0) STANDARDS[i].score = v;
+    });
+    // F-counts occupy positions n through 2n-1
+    if (parts.length >= n * 2) {
+      parts.slice(n, n * 2).forEach(function(val, i) {
+        var v = parseInt(val.trim(), 10);
+        STANDARDS[i].fScore = isNaN(v) ? null : v;
+      });
+    }
+  }
+
+  // Returns true only when every standard has T + F = MAX_SCORE (all questions answered).
+  function allAnswered() {
+    return STANDARDS.every(function(s) {
+      return s.fScore !== null && (s.score + s.fScore) === MAX_SCORE;
     });
   }
 
