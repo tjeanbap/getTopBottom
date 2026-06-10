@@ -237,7 +237,7 @@
     }
 
     html += '<div class="section">';
-    html += '<div class="section-label top-label">Top 2 Standards</div>';
+    html += '<div class="section-label top-label">Our two strongest standards are:</div>';
     tb.top.forEach(function(item) {
       var rank   = item.score === tb.topTiers[0] ? 1 : 2;
       var isTied = tb.top.filter(function(s) { return s.score === item.score; }).length > 1;
@@ -248,7 +248,7 @@
     html += '<div class="divider"></div>';
 
     html += '<div class="section">';
-    html += '<div class="section-label bottom-label">Bottom 2 Standards</div>';
+    html += '<div class="section-label bottom-label">Our two weakest standards are:</div>';
     tb.bottom.forEach(function(item) {
       var rank   = item.score === tb.bottomTiers[0] ? 1 : 2;
       var isTied = tb.bottom.filter(function(s) { return s.score === item.score; }).length > 1;
