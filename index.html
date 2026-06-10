@@ -146,6 +146,8 @@
     { name: "Kingdom Stewardship",  fieldId: "t187", score: 0 }
   ];
 
+  var hasReceivedData = false; // set true once widgetpopulate fires
+
   // Fast lookup: fieldId → STANDARDS index
   var FIELD_INDEX = {};
   STANDARDS.forEach(function(s, i) { FIELD_INDEX[s.fieldId] = i; });
@@ -221,8 +223,13 @@
 
     var allZero = standards.every(function(s) { return s.score === 0; });
     if (allZero) {
-      root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
-      JFCustomWidget.requestFrameResize({ height: 80 });
+      if (hasReceivedData) {
+        root.innerHTML = '<div class="card card-bottom" style="justify-content:center;text-align:center;">All standards have been assessed 0/' + MAX_SCORE + '</div>';
+        JFCustomWidget.requestFrameResize({ height: 60 });
+      } else {
+        root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
+        JFCustomWidget.requestFrameResize({ height: 60 });
+      }
       return;
     }
 
@@ -382,7 +389,7 @@
         // Jotform conditional logic set this widget's value — parse scores from it
         var populated = msg.value || (msg.data && msg.data.value) || "";
         dbg("widgetpopulate: " + populated);
-        if (populated) { parseAndApplyScores(populated); render(buildStandards()); }
+        if (populated) { hasReceivedData = true; parseAndApplyScores(populated); render(buildStandards()); }
 
       } else if (msg.type === "scoreUpdate" && Array.isArray(msg.scores)) {
         // Scores pushed in real-time by the Jotform custom code injection
