@@ -311,9 +311,11 @@
 
   // Returns true only when every standard has T + F = MAX_SCORE (all questions answered).
   function allAnswered() {
-    return STANDARDS.every(function(s) {
+    var result = STANDARDS.every(function(s) {
       return s.fScore !== null && (s.score + s.fScore) === MAX_SCORE;
     });
+    dbg("allAnswered:" + result + " fScores:[" + STANDARDS.map(function(s){ return s.fScore === null ? "null" : s.fScore; }).join(",") + "]");
+    return result;
   }
 
   // Decode the URL-encoded settings JSON Jotform sends and extract scores.
