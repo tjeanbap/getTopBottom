@@ -124,31 +124,27 @@
 <div id="widget-root">
   <div class="no-data">Loading scores…</div>
 </div>
-<div id="debug-log" style="margin-top:8px;font-size:10px;font-family:monospace;color:#666;word-break:break-all;max-height:200px;overflow-y:auto;"></div>
 
 <script>
-  // ── Global error trap — shows JS errors directly in the widget UI ──────────
   window.onerror = function(msg, src, line) {
     var root = document.getElementById("widget-root");
     if (root) root.innerHTML = '<div class="no-data" style="color:#b91c1c;border-color:#fca5a5">JS Error: ' + msg + ' (line ' + line + ')</div>';
   };
 
-  var MAX_SCORE = 7; // each standard has 7 True/False questions
+  var MAX_SCORE = 7;
 
-  // ── Hardcoded standard → field ID mapping for form 261576270259059 ─────────
   var STANDARDS = [
-    { name: "Clear Vision",         fieldId: "t",    score: 0, fScore: null },
-    { name: "Healthy Partnerships", fieldId: "t133", score: 0, fScore: null },
-    { name: "Fruitful Ministry",    fieldId: "t169", score: 0, fScore: null },
-    { name: "Effective Operations", fieldId: "t172", score: 0, fScore: null },
-    { name: "Qualified Leadership", fieldId: "t175", score: 0, fScore: null },
-    { name: "Impactful Training",   fieldId: "t185", score: 0, fScore: null },
-    { name: "Kingdom Stewardship",  fieldId: "t187", score: 0, fScore: null }
+    { name: "Clear Vision",         fieldId: "t",    score: 0 },
+    { name: "Healthy Partnerships", fieldId: "t133", score: 0 },
+    { name: "Fruitful Ministry",    fieldId: "t169", score: 0 },
+    { name: "Effective Operations", fieldId: "t172", score: 0 },
+    { name: "Qualified Leadership", fieldId: "t175", score: 0 },
+    { name: "Impactful Training",   fieldId: "t185", score: 0 },
+    { name: "Kingdom Stewardship",  fieldId: "t187", score: 0 }
   ];
 
-  var hasReceivedData = false; // set true once widgetpopulate fires
+  var hasReceivedData = false;
 
-  // Fast lookup: fieldId → STANDARDS index
   var FIELD_INDEX = {};
   STANDARDS.forEach(function(s, i) { FIELD_INDEX[s.fieldId] = i; });
 
@@ -158,36 +154,32 @@
     });
   }
 
-  // Returns { top, bottom, topTiers, bottomTiers, allEqual }
-  // top/bottom include ALL standards sharing the top-2 or bottom-2 distinct score values,
-  // so tied boundaries expand the list beyond 2 cards.
   function getTopBottom(standards) {
     var sorted = standards.slice().sort(function(a, b) { return b.score - a.score; });
 
     var allEqual = sorted.every(function(s) { return s.score === sorted[0].score; });
     if (allEqual) return { top: [], bottom: [], topTiers: [], bottomTiers: [], allEqual: true };
 
-    // Top tiers: if 2+ share the highest score, show only that tier.
-    // If exactly 1 holds the top score, also include the 2nd-highest tier.
-    var topScore1 = sorted[0].score;
+    var minScore = sorted[sorted.length - 1].score;
+    var maxScore = sorted[0].score;
+
+    var topScore1 = maxScore;
     var topGroup1Count = sorted.filter(function(s) { return s.score === topScore1; }).length;
     var topTiers = [topScore1];
     if (topGroup1Count < 2) {
       sorted.forEach(function(s) {
-        if (topTiers.length < 2 && topTiers.indexOf(s.score) === -1) topTiers.push(s.score);
+        if (topTiers.length < 2 && topTiers.indexOf(s.score) === -1 && s.score !== minScore) topTiers.push(s.score);
       });
     }
 
-    // Bottom tiers: same rule in reverse.
-    var bottomScore1 = sorted[sorted.length - 1].score;
+    var bottomScore1 = minScore;
     var bottomGroup1Count = sorted.filter(function(s) { return s.score === bottomScore1; }).length;
     var bottomTiers = [bottomScore1];
     if (bottomGroup1Count < 2) {
       for (var i = sorted.length - 1; i >= 0; i--) {
-        if (bottomTiers.length < 2 && bottomTiers.indexOf(sorted[i].score) === -1) bottomTiers.push(sorted[i].score);
+        if (bottomTiers.length < 2 && bottomTiers.indexOf(sorted[i].score) === -1 && sorted[i].score !== maxScore) bottomTiers.push(sorted[i].score);
       }
     }
-    // bottomTiers[0] = lowest score, bottomTiers[1] = second-lowest (if included)
 
     var top    = sorted.filter(function(s) { return topTiers.indexOf(s.score)    !== -1; });
     var bottom = sorted.filter(function(s) { return bottomTiers.indexOf(s.score) !== -1; }).reverse();
@@ -198,13 +190,10 @@
   function makeCard(item, type, rank, isTied) {
     var cardClass = type === "top" ? "card card-top" : "card card-bottom";
     var tieBadge  = isTied ? '<span class="tie-badge">tie</span>' : "";
-
     return (
       '<div class="' + cardClass + '">' +
         '<span class="card-rank">#' + rank + '</span>' +
-        '<div class="card-name">' +
-          escapeHtml(item.name) + tieBadge +
-        '</div>' +
+        '<div class="card-name">' + escapeHtml(item.name) + tieBadge + '</div>' +
       '</div>'
     );
   }
@@ -218,7 +207,6 @@
   }
 
   function render(standards) {
-    dbg("render: " + standards.map(function(s){ return s.name.split(" ")[0]+":"+s.score; }).join(" "));
     var root = document.getElementById("widget-root");
 
     var allZero = standards.every(function(s) { return s.score === 0; });
@@ -275,17 +263,9 @@
     }
     var topStr    = tb.top.map(function(s)    { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
     var bottomStr = tb.bottom.map(function(s) { return s.name + " (" + s.score + "/" + MAX_SCORE + ")"; }).join(", ");
-    var tieNotes  = [];
-    if (tb.topTied)    { tieNotes.push("2nd place tied"); }
-    if (tb.bottomTied) { tieNotes.push("2nd-to-last place tied"); }
-    var out = "Top 2: " + topStr + " | Bottom 2: " + bottomStr;
-    if (tieNotes.length) { out += " [" + tieNotes.join("; ") + "]"; }
-    return out;
+    return "Top 2: " + topStr + " | Bottom 2: " + bottomStr;
   }
 
-  // Parse scores from the string Jotform delivers via widgetpopulate.
-  // Format: 14 digits — first 7 are T-counts, next 7 are F-counts, one per standard.
-  // Jotform strips commas so the value arrives as a plain digit string.
   function parseAndApplyScores(str) {
     str = str.trim();
     var parts;
@@ -298,33 +278,14 @@
       var v = parseInt(val.trim(), 10);
       if (!isNaN(v) && v >= 0) STANDARDS[i].score = v;
     });
-    // F-counts occupy positions n through 2n-1
-    if (parts.length >= n * 2) {
-      parts.slice(n, n * 2).forEach(function(val, i) {
-        var v = parseInt(val.trim(), 10);
-        STANDARDS[i].fScore = isNaN(v) ? null : v;
-      });
-    }
   }
 
-  // Returns true only when every standard has T + F = MAX_SCORE (all questions answered).
-  function allAnswered() {
-    var result = STANDARDS.every(function(s) {
-      return s.fScore !== null && (s.score + s.fScore) === MAX_SCORE;
-    });
-    dbg("allAnswered:" + result + " fScores:[" + STANDARDS.map(function(s){ return s.fScore === null ? "null" : s.fScore; }).join(",") + "]");
-    return result;
-  }
-
-  // Decode the URL-encoded settings JSON Jotform sends and extract scores.
-  // Format: "[{\"name\":\"scores\",\"value\":\"3,5,2,7,4,1,6\"}, ...]"
   function parseScoresFromSettings(raw) {
     if (!raw) return;
     try {
       var arr = JSON.parse(decodeURIComponent(raw));
       arr.forEach(function(item) {
         if (item.name === "scores" && item.value) {
-          dbg("scores param: " + item.value);
           item.value.split(",").forEach(function(val, i) {
             if (i < STANDARDS.length) {
               var n = parseInt(val.trim(), 10);
@@ -333,18 +294,11 @@
           });
         }
       });
-    } catch(e) {
-      dbg("settings parse err: " + e.message);
-    }
+    } catch(e) {}
   }
 
-  // ── Widget lifecycle ──────────────────────────────────────────────────────
-
-  // Register for a field's change events using every message type Jotform supports.
-  // Also subscribe using the bare numeric ID (e.g. "133" as well as "t133") since
-  // Jotform may use either format internally.
   function subscribeToField(fieldId) {
-    var numericId = fieldId.replace(/^[a-zA-Z]+/, ""); // "t133" → "133", "t" → ""
+    var numericId = fieldId.replace(/^[a-zA-Z]+/, "");
     ["event:listener", "event:store"].forEach(function(type) {
       try { parent.postMessage(JSON.stringify({ type: type, fieldID: fieldId }), "*"); } catch(e) {}
       if (numericId && numericId !== fieldId) {
@@ -353,8 +307,6 @@
     });
   }
 
-  // Try to update a standard score from a raw field ID + value pair.
-  // Accepts the ID as-is, with the "t" prefix stripped, or with it added.
   function applyFieldValue(fieldId, rawVal) {
     if (!fieldId) return false;
     var candidates = [fieldId, "t" + fieldId, fieldId.replace(/^t/, "")];
@@ -369,54 +321,35 @@
     return false;
   }
 
-  function dbg(text) {
-    var el = document.getElementById("debug-log");
-    if (!el) return;
-    var line = document.createElement("div");
-    line.textContent = text;
-    el.appendChild(line);
-    el.scrollTop = el.scrollHeight;
-    JFCustomWidget.requestFrameResize({ height: 400 });
-  }
-
-  // Confirm the library loaded before trying to subscribe
   if (typeof JFCustomWidget === "undefined") {
     document.getElementById("widget-root").innerHTML =
       '<div class="no-data" style="color:#b91c1c;border-color:#fca5a5">JFCustomWidget library failed to load.</div>';
   }
 
   JFCustomWidget.subscribe("ready", function() {
-    dbg("ready. subscribing: " + STANDARDS.map(function(s){ return s.fieldId; }).join(","));
     STANDARDS.forEach(function(s) { subscribeToField(s.fieldId); });
     render(buildStandards());
   });
 
-  // Listen for incoming messages from the Jotform parent.
   window.addEventListener("message", function(e) {
     try {
       var msg = (typeof e.data === "string") ? JSON.parse(e.data) : e.data;
       if (!msg || !msg.type) return;
-      dbg("MSG: " + JSON.stringify(msg).slice(0, 250));
 
       if (msg.type === "widgetpopulate") {
-        // Jotform conditional logic set this widget's value — parse scores from it
         var populated = msg.value || (msg.data && msg.data.value) || "";
-        dbg("widgetpopulate: " + populated);
-        if (populated) { hasReceivedData = true; dbg("raw len:" + populated.length + " val:" + populated); parseAndApplyScores(populated); render(buildStandards()); }
+        if (populated) { hasReceivedData = true; parseAndApplyScores(populated); render(buildStandards()); }
 
       } else if (msg.type === "scoreUpdate" && Array.isArray(msg.scores)) {
-        // Scores pushed in real-time by the Jotform custom code injection
         msg.scores.forEach(function(score, i) {
           if (i < STANDARDS.length) {
             var n = parseInt(score, 10);
             STANDARDS[i].score = isNaN(n) ? 0 : n;
           }
         });
-        dbg("scoreUpdate: " + msg.scores.join(","));
         render(buildStandards());
 
       } else if (msg.type === "event:receiver") {
-        // Field ID and value may live at the top level or inside msg.data
         var fieldId = msg.fieldID || msg.name  || (msg.data && (msg.data.fieldID || msg.data.name));
         var rawVal  = msg.value   || msg.val   || (msg.data && (msg.data.value   || msg.data.val)) || "0";
         if (applyFieldValue(fieldId, rawVal)) {
@@ -424,19 +357,14 @@
         }
 
       } else if (msg.type === "settings") {
-        // Parse scores directly from the raw URL-encoded settings JSON.
-        // JFCustomWidget may not have updated its internal store yet, so we
-        // decode msg.settings ourselves rather than calling getWidgetSetting().
         parseScoresFromSettings(msg.settings);
         render(buildStandards());
       }
-    } catch (err) { /* ignore non-JSON frames */ }
+    } catch (err) {}
   });
 
   JFCustomWidget.subscribe("submit", function(data) {
-    // At submit time Jotform re-evaluates merge tags — re-parse settings now
     parseScoresFromSettings(data && data.settings);
-    // Also try via getWidgetSetting in case the store was updated by now
     var scoresParam = JFCustomWidget.getWidgetSetting("scores");
     if (scoresParam) {
       scoresParam.split(",").forEach(function(val, i) {
