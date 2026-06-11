@@ -221,15 +221,13 @@
     dbg("render: " + standards.map(function(s){ return s.name.split(" ")[0]+":"+s.score; }).join(" "));
     var root = document.getElementById("widget-root");
 
-    if (!allAnswered()) {
-      root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
-      JFCustomWidget.requestFrameResize({ height: 60 });
-      return;
-    }
-
     var allZero = standards.every(function(s) { return s.score === 0; });
     if (allZero) {
-      root.innerHTML = '<div class="card card-bottom" style="justify-content:center;text-align:center;">All standards have been assessed 0/' + MAX_SCORE + '</div>';
+      if (hasReceivedData) {
+        root.innerHTML = '<div class="card card-bottom" style="justify-content:center;text-align:center;">All standards have been assessed 0/' + MAX_SCORE + '</div>';
+      } else {
+        root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
+      }
       JFCustomWidget.requestFrameResize({ height: 60 });
       return;
     }
