@@ -404,7 +404,7 @@
         // Jotform conditional logic set this widget's value — parse scores from it
         var populated = msg.value || (msg.data && msg.data.value) || "";
         dbg("widgetpopulate: " + populated);
-        if (populated) { hasReceivedData = true; parseAndApplyScores(populated); render(buildStandards()); }
+        if (populated) { hasReceivedData = true; dbg("raw len:" + populated.length + " val:" + populated); parseAndApplyScores(populated); render(buildStandards()); }
 
       } else if (msg.type === "scoreUpdate" && Array.isArray(msg.scores)) {
         // Scores pushed in real-time by the Jotform custom code injection
