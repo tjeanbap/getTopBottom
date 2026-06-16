@@ -216,7 +216,7 @@
       } else {
         root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
       }
-      JFCustomWidget.requestFrameResize({ height: 160 });
+      JFCustomWidget.requestFrameResize({ height: 60 });
       return;
     }
 
@@ -349,7 +349,6 @@
         var populated = msg.value || (msg.data && msg.data.value) || "";
         if (populated) {
           hasReceivedData = true;
-          document.getElementById("widget-root").insertAdjacentHTML("beforebegin", '<div style="font-size:11px;font-family:monospace;color:#555;margin-bottom:4px;">received: ' + populated + '</div>');
           parseAndApplyScores(populated);
           render(buildStandards());
         }
