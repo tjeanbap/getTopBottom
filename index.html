@@ -134,7 +134,7 @@
   var MAX_SCORE = 7;
 
   var STANDARDS = [
-    { name: "Clear Vision",         fieldId: "t63",  score: 0 },
+    { name: "Clear Vision",         fieldId: "t",    score: 0 },
     { name: "Healthy Partnerships", fieldId: "t133", score: 0 },
     { name: "Fruitful Ministry",    fieldId: "t169", score: 0 },
     { name: "Effective Operations", fieldId: "t172", score: 0 },
@@ -216,7 +216,7 @@
       } else {
         root.innerHTML = '<div class="no-data">Scores will appear here as you complete the assessment.</div>';
       }
-      JFCustomWidget.requestFrameResize({ height: 60 });
+      JFCustomWidget.requestFrameResize({ height: 160 });
       return;
     }
 
@@ -268,12 +268,21 @@
 
   function parseAndApplyScores(str) {
     str = str.trim();
+    var n = STANDARDS.length;
     var parts;
     if (str.indexOf("|") !== -1)      { parts = str.split("|"); }
     else if (str.indexOf(",") !== -1)  { parts = str.split(","); }
-    else                               { parts = str.split(""); }
+    else {
+      // Plain digit string, one digit per standard. Jotform treats it as a
+      // number and drops LEADING zeros ("0444662" -> "444662",
+      // "0000000" -> "0"). Only leading zeros are ever lost, so left-pad
+      // back to one digit per standard to keep positions aligned.
+      if (/^\d+$/.test(str)) {
+        while (str.length < n) { str = "0" + str; }
+      }
+      parts = str.split("");
+    }
 
-    var n = STANDARDS.length;
     parts.slice(0, n).forEach(function(val, i) {
       var v = parseInt(val.trim(), 10);
       if (!isNaN(v) && v >= 0) STANDARDS[i].score = v;
