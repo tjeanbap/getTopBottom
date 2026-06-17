@@ -65,6 +65,12 @@
       border-left: 4px solid #dc2626;
     }
 
+    .card-mid {
+      background: #fef9c3;
+      color: #854d0e;
+      border-left: 4px solid #ca8a04;
+    }
+
     .card-rank {
       font-size: 10px;
       font-weight: 700;
@@ -231,8 +237,9 @@
     var html = "";
 
     if (tb.allEqual) {
-      // Green when the shared score is 5/7 or higher, red at 4/7 or below.
-      var equalClass = standards[0].score >= 5 ? "card-top" : "card-bottom";
+      // Green at 7/7, yellow at 5/7-6/7, red at 4/7 or below.
+      var eqScore = standards[0].score;
+      var equalClass = eqScore === MAX_SCORE ? "card-top" : (eqScore >= 5 ? "card-mid" : "card-bottom");
       html += '<div class="card ' + equalClass + '" style="justify-content:center;text-align:center;">All standards have been assessed ' + standards[0].score + '/' + MAX_SCORE + '</div>';
       root.innerHTML = html;
       JFCustomWidget.requestFrameResize({ height: 80 });
