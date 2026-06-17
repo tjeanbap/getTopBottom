@@ -231,7 +231,9 @@
     var html = "";
 
     if (tb.allEqual) {
-      html += '<div class="card card-top" style="justify-content:center;text-align:center;">All standards have been assessed ' + standards[0].score + '/' + MAX_SCORE + '</div>';
+      // Green when the shared score is 5/7 or higher, red at 4/7 or below.
+      var equalClass = standards[0].score >= 5 ? "card-top" : "card-bottom";
+      html += '<div class="card ' + equalClass + '" style="justify-content:center;text-align:center;">All standards have been assessed ' + standards[0].score + '/' + MAX_SCORE + '</div>';
       root.innerHTML = html;
       JFCustomWidget.requestFrameResize({ height: 80 });
       return;
