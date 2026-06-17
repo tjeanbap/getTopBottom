@@ -181,6 +181,13 @@
       }
     }
 
+    // If the 2nd-strongest tier score equals the 2nd-weakest tier score, those
+    // standards belong only to the strongest list — drop the shared tier from
+    // the weakest list (leaving just its single lowest-scoring standard(s)).
+    if (topTiers.length > 1 && bottomTiers.length > 1 && topTiers[1] === bottomTiers[1]) {
+      bottomTiers = [bottomTiers[0]];
+    }
+
     var top    = sorted.filter(function(s) { return topTiers.indexOf(s.score)    !== -1; });
     var bottom = sorted.filter(function(s) { return bottomTiers.indexOf(s.score) !== -1; }).reverse();
 
